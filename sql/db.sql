@@ -212,6 +212,13 @@ CREATE TABLE `config` (
 -- ----------------------------
 INSERT INTO `config` VALUES ('1', 'is_rand_port', 0);
 INSERT INTO `config` VALUES ('2', 'is_user_rand_port', 0);
+INSERT INTO `config` VALUES ('3', 'invite_num', 3);
+INSERT INTO `config` VALUES ('4', 'is_register', 1);
+INSERT INTO `config` VALUES ('5', 'is_invite_register', 1);
+INSERT INTO `config` VALUES ('6', 'website_name', 'SSRPanel');
+INSERT INTO `config` VALUES ('7', 'is_reset_password', 1);
+INSERT INTO `config` VALUES ('8', 'reset_password_times', 3);
+INSERT INTO `config` VALUES ('9', 'website_url', 'http://baidu.com');
 
 
 -- ----------------------------
@@ -226,7 +233,38 @@ CREATE TABLE `article` (
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COMMENT='文章表';
+
+
+-- ----------------------------
+-- Table structure for `invite`
+-- ----------------------------
+CREATE TABLE `invite` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `uid` int(11) NOT NULL DEFAULT '0' COMMENT '邀请人ID',
+  `fuid` int(11) NOT NULL DEFAULT '0' COMMENT '受邀人ID',
+  `code` char(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '邀请码',
+  `status` tinyint(4) NOT NULL DEFAULT '0' COMMENT '邀请码状态：0-未使用、1-已使用、2-已过期',
+  `dateline` datetime DEFAULT NULL COMMENT '有效期至',
+  `created_at` datetime DEFAULT NULL,
+  `updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邀请码表';
+
+
+-- ----------------------------
+-- Table structure for `verify`
+-- ----------------------------
+CREATE TABLE `verify` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL COMMENT '用户ID',
+  `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '用户名',
+  `token` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '校验token',
+  `status` tinyint(4) NOT NULL DEFAULT '0' COMMENT '状态：0-未使用、1-已使用、2-已失效',
+  `created_at` datetime DEFAULT NULL COMMENT '创建时间',
+  `updated_at` datetime DEFAULT NULL COMMENT '最后一次更新时间',
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 

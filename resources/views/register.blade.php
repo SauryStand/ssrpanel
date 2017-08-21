@@ -7,7 +7,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <title>登录</title>
+    <title>注册</title>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta content="width=device-width, initial-scale=1" name="viewport" />
     <meta content="" name="description" />
@@ -37,48 +37,54 @@
 <!-- END LOGO -->
 <!-- BEGIN LOGIN -->
 <div class="content">
-    <!-- BEGIN LOGIN FORM -->
-    <form class="login-form" action="{{url('login')}}" method="post">
-        <div class="alert alert-danger display-hide">
-            <button class="close" data-close="alert"></button>
-            <span> 请输入用户名和密码 </span>
-        </div>
-        @if (Session::get('errorMsg'))
-            <div class="alert alert-danger">
-                <button class="close" data-close="alert"></button>
-                <span> {{Session::get('errorMsg')}} </span>
+    <!-- BEGIN REGISTRATION FORM -->
+    <form class="register-form" action="{{url('register')}}" method="post" style="display: block;">
+        @if($is_register)
+            @if(Session::get('errorMsg'))
+                <div class="alert alert-danger">
+                    <button class="close" data-close="alert"></button>
+                    <span> {{Session::get('errorMsg')}} </span>
+                </div>
+            @endif
+            <div class="form-group">
+                <label class="control-label visible-ie8 visible-ie9">用户名</label>
+                <input class="form-control placeholder-no-fix" type="text" autocomplete="off" placeholder="用户名" name="username" value="{{Request::old('username')}}" required />
+                <input type="hidden" name="_token" value="{{csrf_token()}}" />
             </div>
-        @endif
-        <div class="form-group">
-            <!--ie8, ie9 does not support html5 placeholder, so we just show field title for that-->
-            <label class="control-label visible-ie8 visible-ie9">E-mail</label>
-            <input class="form-control form-control-solid placeholder-no-fix" type="text" autocomplete="off" placeholder="用户名" name="username" value="{{Request::old('username')}}" /> </div>
-        <div class="form-group">
-            <label class="control-label visible-ie8 visible-ie9">密码</label>
-            <input class="form-control form-control-solid placeholder-no-fix" type="password" autocomplete="off" placeholder="密码" name="password" value="{{Request::old('password')}}" />
-            <input type="hidden" name="_token" value="{{ csrf_token() }}" />
-        </div>
-        <div class="form-actions">
-            <div class="pull-left">
-                <label class="rememberme mt-checkbox mt-checkbox-outline">
-                    <input type="checkbox" name="remember" value="1"> 记住我
+            <div class="form-group">
+                <label class="control-label visible-ie8 visible-ie9">密码</label>
+                <input class="form-control placeholder-no-fix" type="password" autocomplete="off" placeholder="密码" name="password" value="{{Request::old('password')}}" required />
+            </div>
+            <div class="form-group">
+                <label class="control-label visible-ie8 visible-ie9">重复密码</label>
+                <input class="form-control placeholder-no-fix" type="password" autocomplete="off" placeholder="重复密码" name="repassword" value="{{Request::old('repassword')}}" required />
+            </div>
+            @if($is_invite_register)
+                <div class="form-group">
+                    <label class="control-label visible-ie8 visible-ie9">邀请码</label>
+                    <input class="form-control placeholder-no-fix" type="text" autocomplete="off" placeholder="邀请码" name="code" value="{{Request::old('code')}}" required />
+                </div>
+            @endif
+            <div class="form-group margin-top-20 margin-bottom-20">
+                <label class="mt-checkbox mt-checkbox-outline">
+                    <input type="checkbox" name="tnc" checked disabled /> 我已阅读并同意遵守
+                    <a href="javascript:;"> 服务条款 </a>
                     <span></span>
                 </label>
             </div>
-            <div class="pull-right forget-password-block">
-                <a href="{{url('resetPassword')}}" class="forget-password">忘记密码</a>
+        @else
+            <div class="alert alert-danger">
+                <span> 系统维护中，如需账号请联系管理员 </span>
             </div>
-        </div>
+        @endif
         <div class="form-actions">
-            <button type="submit" class="btn red btn-block uppercase">登 录</button>
-        </div>
-        <div class="create-account">
-            <p>
-                <a href="{{url('register')}}" class="btn-primary btn">注 册</a>
-            </p>
+            <button type="button" class="btn btn-default" onclick="login()">返 回</button>
+            @if($is_register)
+                <button type="submit" class="btn red uppercase pull-right">提 交</button>
+            @endif
         </div>
     </form>
-    <!-- END LOGIN FORM -->
+    <!-- END REGISTRATION FORM -->
 </div>
 
 <!-- END LOGIN -->
@@ -96,14 +102,15 @@
 <script src="/assets/global/plugins/jquery-validation/js/additional-methods.min.js" type="text/javascript"></script>
 <script src="/assets/global/plugins/jquery-validation/js/localization/messages_zh.min.js" type="text/javascript"></script>
 <!-- END PAGE LEVEL PLUGINS -->
+<script type="text/javascript">
+    // 登录
+    function login() {
+        window.location.href = '{{url('login')}}';
+    }
+</script>
 <!-- BEGIN THEME GLOBAL SCRIPTS -->
 <script src="/assets/global/scripts/app.min.js" type="text/javascript"></script>
 <!-- END THEME GLOBAL SCRIPTS -->
-<!-- BEGIN PAGE LEVEL SCRIPTS -->
-<script src="/assets/pages/scripts/login.js" type="text/javascript"></script>
-<!-- END PAGE LEVEL SCRIPTS -->
-<!-- BEGIN THEME LAYOUT SCRIPTS -->
-<!-- END THEME LAYOUT SCRIPTS -->
 </body>
 
 </html>

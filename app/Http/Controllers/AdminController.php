@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Models\Article;
 use App\Http\Models\Config;
+use App\Http\Models\Invite;
 use App\Http\Models\SsConfig;
 use App\Http\Models\SsNode;
 use App\Http\Models\SsNodeInfo;
@@ -16,6 +17,13 @@ use Response;
 
 class AdminController extends BaseController
 {
+    protected static $config;
+
+    function __construct()
+    {
+        self::$config = $this->systemConfig();
+    }
+
     public function index(Request $request)
     {
         if (!$request->session()->has('user')) {
@@ -37,7 +45,7 @@ class AdminController extends BaseController
         $flowCount = $this->flowAutoShow($flowCount);
         $view['flowCount'] = $flowCount;
         $view['totalBalance'] = User::sum('balance');
-        $view['expireWarningUserCount'] = User::where('expire_time', '<=', date('Y-m-d', strtotime("+15 days")))->count();
+        $view['expireWarningUserCount'] = User::where('expire_time', '<=', date('Y-m-d', strtotime("+15 days")))->where('enable', 1)->count();
 
         // 到期账号禁用
         User::where('enable', 1)->where('expire_time', '<=', date('Y-m-d'))->update(['enable' => 0]);
@@ -140,6 +148,12 @@ class AdminController extends BaseController
             $remark = $request->get('remark');
             $is_admin = $request->get('is_admin');
 
+            // 校验username是否已存在
+            $exists = User::where('username', $username)->first();
+            if ($exists) {
+                return Response::json(['status' => 'fail', 'data' => '', 'message' => '用户名已存在，请重新输入']);
+            }
+
             // 密码为空时生成默认密码
             if (empty($password)) {
                 $str = $this->makeRandStr();
@@ -179,11 +193,9 @@ class AdminController extends BaseController
                 return Response::json(['status' => 'fail', 'data' => '', 'message' => '添加失败']);
             }
         } else {
-            $config = $this->systemConfig();
-
             // 最后一个可用端口
             $last_user = User::orderBy('id', 'desc')->first();
-            $view['last_port'] = $config['is_rand_port'] ? $this->getRandPort() : $last_user->port + 1;
+            $view['last_port'] = self::$config['is_rand_port'] ? $this->getRandPort() : $last_user->port + 1;
 
             // 加密方式、协议、混淆
             $view['method_list'] =  $this->methodList();
@@ -230,6 +242,12 @@ class AdminController extends BaseController
             $expire_time = $request->get('expire_time');
             $remark = $request->get('remark');
             $is_admin = $request->get('is_admin');
+
+            // 校验username是否已存在
+            $exists = User::where('username', $username)->first();
+            if ($exists) {
+                return Response::json(['status' => 'fail', 'data' => '', 'message' => '用户名已存在，请重新输入']);
+            }
 
             $data = [
                 'username' => $username,
@@ -472,7 +490,7 @@ class AdminController extends BaseController
             return Redirect::to('login');
         }
 
-        $articleList = Article::paginate(10);
+        $articleList = Article::orderBy('sort', 'desc')->paginate(10);
 
         $view['articleList'] = $articleList;
 
@@ -849,13 +867,15 @@ CONFIG;
             // 生成文本配置信息
             $txt = <<<TXT
 服务器：{$node->server}
-端口：{$user->port}
+远程端口：{$user->port}
+本地端口：1080
 密码：{$user->passwd}
-加密方式：{$user->method}
+加密方法：{$user->method}
 协议：{$user->protocol}
 协议参数：{$user->protocol_param}
-混淆：{$user->obfs}
+混淆方式：{$user->obfs}
 混淆参数：{$user->obfs_param}
+路由：绕过局域网及中国大陆地址
 TXT;
 
             $node->txt = $txt;
@@ -945,6 +965,7 @@ TXT;
         }
 
         $view['traffic'] = $traffic;
+        $view['nodeList'] = $node_list;
 
         return Response::view('admin/monitor', $view);
     }
@@ -1106,23 +1127,121 @@ TXT;
         return Response::view('admin/system', $view);
     }
 
-    // 启用、禁用随机端口
-    public function enableRandPort(Request $request)
+    // 设置某个配置项
+    public function setConfig(Request $request)
     {
-        $value = intval($request->get('value'));
+        $name = trim($request->get('name'));
+        $value = trim($request->get('value'));
 
-        Config::where('id', 1)->update(['value' => $value]);
+        if ($name == '' || $value == '') {
+            return Response::json(['status' => 'fail', 'data' => '', 'message' => '设置失败：请求参数异常']);
+        }
+
+        // 屏蔽异常配置
+        if (!array_key_exists($name, self::$config)) {
+            return Response::json(['status' => 'fail', 'data' => '', 'message' => '设置失败：配置不存在']);
+        }
+
+        // 如果开启用户邮件重置密码，则先设置网站名称和网址
+        if ($name == 'is_reset_password' && $value == '1') {
+            $config = Config::where('name', 'website_name')->first();
+            if ($config->value == '') {
+                return Response::json(['status' => 'fail', 'data' => '', 'message' => '设置失败：开启重置密码需要先设置【网站名称】']);
+            }
+
+            $config = Config::where('name', 'website_url')->first();
+            if ($config->value == '') {
+                return Response::json(['status' => 'fail', 'data' => '', 'message' => '设置失败：开启重置密码需要先设置【网站地址】']);
+            }
+        }
+
+        $ret = Config::where('name', $name)->update(['value' => $value]);
+        if (!$ret) {
+            return Response::json(['status' => 'fail', 'data' => '', 'message' => '设置失败']);
+        }
 
         return Response::json(['status' => 'success', 'data' => '', 'message' => '操作成功']);
     }
 
-    // 启用、禁用自定义端口
-    public function enableUserRandPort(Request $request)
+    // 设置可生成邀请码数
+    public function setInviteNum(Request $request)
     {
         $value = intval($request->get('value'));
 
-        Config::where('id', 2)->update(['value' => $value]);
+        Config::where('id', 3)->update(['value' => $value]);
 
-        return Response::json(['status' => 'success', 'data' => '', 'message' => '操作成功']);
+        return Response::json(['status' => 'success', 'data' => '', 'message' => '设置成功']);
+    }
+
+    // 设置网站名称
+    public function setWebsiteName(Request $request)
+    {
+        $value = trim($request->get('value'));
+
+        Config::where('id', 6)->update(['value' => $value]);
+
+        return Response::json(['status' => 'success', 'data' => '', 'message' => '设置成功']);
+    }
+
+    // 设置网站地址
+    public function setWebsiteUrl(Request $request)
+    {
+        $value = trim($request->get('value'));
+
+        Config::where('id', 9)->update(['value' => $value]);
+
+        return Response::json(['status' => 'success', 'data' => '', 'message' => '设置成功']);
+    }
+
+    // 设置重置密码次数
+    public function setResetPasswordTimes(Request $request)
+    {
+        $value = intval($request->get('value'));
+
+        Config::where('id', 8)->update(['value' => $value]);
+
+        return Response::json(['status' => 'success', 'data' => '', 'message' => '设置成功']);
+    }
+
+    // 邀请码列表
+    public function inviteList(Request $request)
+    {
+        if (!$request->session()->has('user')) {
+            return Redirect::to('login');
+        }
+
+        if (!$request->session()->get('user')['is_admin']) {
+            return Redirect::to('login');
+        }
+
+        $view['inviteList'] = Invite::with(['generator', 'user'])->paginate(10);
+
+        return Response::view('admin/inviteList', $view);
+    }
+
+    // 生成邀请码
+    public function makeInvite(Request $request)
+    {
+        if (!$request->session()->has('user')) {
+            return Redirect::to('login');
+        }
+
+        if (!$request->session()->get('user')['is_admin']) {
+            return Redirect::to('login');
+        }
+
+        $user = $request->session()->get('user');
+
+        for ($i = 0; $i < 5; $i++) {
+            $obj = new Invite();
+            $obj->uid = $user['id'];
+            $obj->fuid = 0;
+            $obj->code = strtoupper(substr(md5(microtime() . $this->makeRandStr(6)), 8, 16));
+            $obj->status = 0;
+            $obj->dateline = date('Y-m-d H:i:s', strtotime("+ 7days"));
+            $obj->save();
+        }
+
+        return Response::json(['status' => 'success', 'data' => '', 'message' => '生成成功']);
     }
 }
